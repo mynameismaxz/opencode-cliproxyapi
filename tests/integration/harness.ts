@@ -35,11 +35,39 @@ export function hostInstalled(line: Line): boolean {
   return existsSync(hostBin(line)) && existsSync(join(DIST, "index.js"))
 }
 
+export interface OutputLine {
+  /** Arrival time on the test process clock (performance.now()), comparable with mock request times. */
+  at: number
+  stream: "stdout" | "stderr"
+  text: string
+}
+
 export interface HostRun {
   exitCode: number | null
   stdout: string
   stderr: string
   ms: number
+  /** When the host process was started, on the test process clock. */
+  startedAt: number
+  lines: OutputLine[]
+}
+
+/** Read a stream to the end, timestamping each line as it arrives. */
+async function collect(stream: ReadableStream<Uint8Array>, name: OutputLine["stream"], lines: OutputLine[]): Promise<string> {
+  const decoder = new TextDecoder()
+  let all = ""
+  let pending = ""
+  for await (const chunk of stream) {
+    const text = decoder.decode(chunk, { stream: true })
+    all += text
+    pending += text
+    const parts = pending.split("\n")
+    pending = parts.pop()!
+    const at = performance.now()
+    for (const p of parts) lines.push({ at, stream: name, text: p })
+  }
+  if (pending) lines.push({ at: performance.now(), stream: name, text: pending })
+  return all
 }
 
 export interface HostOptions {
@@ -118,10 +146,11 @@ export async function withHost<T>(line: Line, opts: HostOptions, fn: (h: HostHan
     const t0 = performance.now()
     const proc = Bun.spawn([hostBin(line), ...full], { cwd: project, env, stdout: "pipe", stderr: "pipe", stdin: "ignore" })
     const timer = setTimeout(() => proc.kill(), timeoutMs)
-    const [stdout, stderr] = await Promise.all([new Response(proc.stdout).text(), new Response(proc.stderr).text()])
+    const lines: OutputLine[] = []
+    const [stdout, stderr] = await Promise.all([collect(proc.stdout, "stdout", lines), collect(proc.stderr, "stderr", lines)])
     await proc.exited
     clearTimeout(timer)
-    return { exitCode: proc.exitCode, stdout, stderr, ms: performance.now() - t0 }
+    return { exitCode: proc.exitCode, stdout, stderr, ms: performance.now() - t0, startedAt: t0, lines }
   }
 
   const handle: HostHandle = {
@@ -153,10 +182,14 @@ export async function withHost<T>(line: Line, opts: HostOptions, fn: (h: HostHan
   }
 }
 
+const PLUGIN_MESSAGE = /CLIProxyAPI at |CLIPROXYAPI_BASE_URL \/ baseURL|@mynameismaxz\/opencode-cliproxyapi supports|\[cliproxyapi\]/
+
 /** Every output line mentioning the plugin's user-facing messages. */
 export function pluginMessages(run: HostRun): string[] {
-  const text = `${run.stdout}\n${run.stderr}`
-  return text
-    .split("\n")
-    .filter((l) => /CLIProxyAPI at |CLIPROXYAPI_BASE_URL \/ baseURL|@mynameismaxz\/opencode-cliproxyapi supports|\[cliproxyapi\]/.test(l))
+  return pluginMessageLines(run).map((l) => l.text)
+}
+
+/** Same as pluginMessages, with each line's arrival time. */
+export function pluginMessageLines(run: HostRun): OutputLine[] {
+  return run.lines.filter((l) => PLUGIN_MESSAGE.test(l.text))
 }

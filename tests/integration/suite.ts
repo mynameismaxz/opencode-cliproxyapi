@@ -6,17 +6,19 @@ import { afterAll, beforeAll, describe, expect, setDefaultTimeout, test } from "
 import { existsSync, readFileSync, readdirSync, statSync, symlinkSync } from "node:fs"
 import { join } from "node:path"
 import { startMockProxy, type MockProxy } from "../mock/cliproxyapi"
-import { DIST, hostInstalled, pluginMessages, withHost, type HostHandle, type HostRun, type Line } from "./harness"
+import { DIST, hostInstalled, pluginMessageLines, pluginMessages, withHost, type HostHandle, type HostRun, type Line } from "./harness"
 
 const FIXTURE_IDS = ["claude-sonnet-4-6", "gemini-2.5-pro", "gpt-5.5", "grok-4.7", "kimi-k2.5"]
+/** Discovery timeout the plugin must honour (src/core/settings.ts DISCOVERY_TIMEOUT_MS). */
+const DISCOVERY_TIMEOUT_MS = 3000
+/** Slack for message emission after the timeout fires: host logger + pipe delivery. */
+const MESSAGE_SLACK_MS = 1500
 /**
- * Allowed startup overhead (ms) when the proxy is down: discovery timeout (3 s) + v1 notify bound
- * (1 s) + run-to-run noise. OpenCode 1.19.3 cold starts vary by several seconds between identical
- * runs (observed 1–8 s), so v1 gets a larger noise allowance than v2.
+ * Whole-command wall clock is only a hang guard. Host cold-start time varies by several seconds
+ * between identical runs, more on shared CI runners, so it cannot measure the plugin's own delay.
+ * The slow-proxy test measures that delay directly instead (request arrival -> warning line).
  */
-function startupBudget(line: Line): number {
-  return 3000 + 1000 + (line === "v1" ? 4000 : 1500)
-}
+const HANG_GUARD_MS = 20_000
 
 function chatRequests(proxy: MockProxy) {
   return proxy.requests.filter((r) => r.method === "POST" && r.path === "/v1/chat/completions")
@@ -216,15 +218,24 @@ export function defineHostSuite(line: Line) {
       })
       afterAll(() => user.stop())
 
-      async function scenario(env: Record<string, string>, expectText: string) {
+      async function scenario(env: Record<string, string>, expectText: string, slowProxy?: MockProxy) {
         await withHost(line, { env, extraConfig: userProviderConfig(line, user.url) }, async (h) => {
           const { run, proxied } = await h.listModels({ printLogs: true })
           expect(run.exitCode).toBe(0)
           expect(proxied).toEqual([])
-          expect(run.ms).toBeLessThanOrEqual(baselineMs + startupBudget(line))
+          expect(run.ms).toBeLessThanOrEqual(baselineMs + HANG_GUARD_MS)
           const msgs = pluginMessages(run)
           expect(msgs.length).toBe(1)
           expect(msgs[0]).toContain(expectText)
+
+          if (slowProxy) {
+            // The plugin's own delay: from the proxy receiving the listing request to the warning.
+            const request = slowProxy.requests.find((r) => r.path.startsWith("/v1/models") && r.at >= run.startedAt)
+            expect(request).toBeDefined()
+            const waited = pluginMessageLines(run)[0]!.at - request!.at
+            expect(waited).toBeGreaterThanOrEqual(DISCOVERY_TIMEOUT_MS - 100)
+            expect(waited).toBeLessThanOrEqual(DISCOVERY_TIMEOUT_MS + MESSAGE_SLACK_MS)
+          }
 
           const before = chatRequests(user).length
           const chat = await h.prompt("usermock/user-model")
@@ -259,7 +270,7 @@ export function defineHostSuite(line: Line) {
       test("slow proxy is cut off by the discovery timeout", async () => {
         const p = startMockProxy({ fixture: "models.json", delayMs: 7000 })
         try {
-          await scenario({ CLIPROXYAPI_BASE_URL: p.url }, "could not be reached (no response within 3000 ms)")
+          await scenario({ CLIPROXYAPI_BASE_URL: p.url }, "could not be reached (no response within 3000 ms)", p)
         } finally {
           p.stop()
         }

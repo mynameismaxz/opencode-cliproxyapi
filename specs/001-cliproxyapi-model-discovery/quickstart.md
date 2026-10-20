@@ -42,7 +42,8 @@ Each run starts its own mock CLIProxyAPI instances and runs the shared suite in
   `{env:VAR}` in options works; a missing key yields zero models and one warning naming
   `CLIPROXYAPI_API_KEY`; the key never appears in output or host files.
 - **US3**: with the proxy unreachable, malformed, empty, slow (7 s), or the base URL invalid,
-  the host starts within baseline + 3 s timeout + allowances, exactly one message appears
+  the host never hangs, the slow proxy is cut off 3.0 to 4.5 s after its request arrives
+  (measured directly, independent of host start-up noise), exactly one message appears
   (with `--print-logs`), no proxied models are registered, a user-owned provider still
   completes a chat turn, and no config file is modified.
 

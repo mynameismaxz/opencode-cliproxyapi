@@ -16,6 +16,8 @@ export interface MockProxyOptions {
 }
 
 export interface RecordedRequest {
+  /** Arrival time on the test process clock (performance.now()). */
+  at: number
   method: string
   path: string
   headers: Record<string, string>
@@ -90,7 +92,7 @@ export function startMockProxy(opts: MockProxyOptions = {}): MockProxy {
       if (url.pathname === "/healthz") return Response.json({ status: "ok" })
 
       if (req.method === "GET" && (url.pathname === "/v1/models" || url.pathname === "/v1/models/")) {
-        requests.push({ method: req.method, path: url.pathname + url.search, headers })
+        requests.push({ at: performance.now(), method: req.method, path: url.pathname + url.search, headers })
         if (opts.delayMs) await Bun.sleep(opts.delayMs)
         const denied = authFailure(req)
         if (denied) return denied
@@ -104,7 +106,7 @@ export function startMockProxy(opts: MockProxyOptions = {}): MockProxy {
         try {
           body = await req.json()
         } catch {}
-        requests.push({ method: req.method, path: url.pathname, headers, model: body?.model, stream: !!body?.stream })
+        requests.push({ at: performance.now(), method: req.method, path: url.pathname, headers, model: body?.model, stream: !!body?.stream })
         const denied = authFailure(req)
         if (denied) return denied
         if (body?.stream) return new Response(chatStream(body.model), { headers: { "content-type": "text/event-stream" } })
