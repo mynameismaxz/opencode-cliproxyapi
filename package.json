@@ -1,6 +1,6 @@
 {
   "name": "@mynameismaxz/opencode-cliproxyapi",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "OpenCode plugin that discovers CLIProxyAPI models and registers them automatically (OpenCode 1.19.3+ and 2.x).",
   "type": "module",
   "license": "MIT",
