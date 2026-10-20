@@ -21,8 +21,9 @@ jobs:
       - uses: actions/setup-node@v5
         with:
           node-version: 24
-      # Trusted publishing needs npm >= 11.5.1.
-      - run: npm install -g npm@latest
+      # Trusted publishing needs npm >= 11.5.1. Pinned to 11.x: npm 12 blocks install scripts by
+      # default and does not support every Node 24 release on the runner.
+      - run: npm install -g npm@^11.5.1
       - run: bun install --frozen-lockfile
 
       - name: Tag must match package.json version
