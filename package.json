@@ -1,0 +1,58 @@
+{
+  "name": "@mynameismaxz/opencode-cliproxyapi",
+  "version": "0.1.0",
+  "description": "OpenCode plugin that discovers CLIProxyAPI models and registers them automatically (OpenCode 1.19.3+ and 2.x).",
+  "type": "module",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mynameismaxz/opencode-cliproxyapi.git"
+  },
+  "homepage": "https://github.com/mynameismaxz/opencode-cliproxyapi#readme",
+  "bugs": {
+    "url": "https://github.com/mynameismaxz/opencode-cliproxyapi/issues"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./server": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "engines": {
+    "opencode": ">=1.19.3"
+  },
+  "keywords": [
+    "opencode",
+    "opencode-plugin",
+    "cliproxyapi",
+    "openai-compatible"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "rm -rf dist && tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "bun test tests/unit tests/contract",
+    "test:integration": "bun run build && bun test tests/integration --timeout 180000",
+    "mock-proxy": "bun tests/mock/cli.ts",
+    "it:v1": "bun run build && bun test tests/integration/host-v1.test.ts --timeout 180000",
+    "it:v2": "bun run build && bun test tests/integration/host-v2.test.ts --timeout 180000",
+    "prepublishOnly": "bun run typecheck && bun run build && bun run test"
+  },
+  "devDependencies": {
+    "@opencode-ai/plugin": "1.19.3",
+    "@opencode/plugin": "2.0.32",
+    "@types/bun": "latest",
+    "typescript": "^5.6.0"
+  }
+}
