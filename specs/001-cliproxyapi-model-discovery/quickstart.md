@@ -9,7 +9,7 @@ Runnable scenarios that prove the feature end-to-end. Commands assume the repo r
 - OpenCode hosts installed into isolated prefixes (CI does this automatically):
 
 ```sh
-./scripts/install-hosts.sh   # opencode-ai@1.19.3 -> .hosts/v1, @opencode/cli@2.0.32 -> .hosts/v2
+./scripts/install-hosts.sh   # opencode-ai@1.19.3 -> .hosts/v1, @opencode/cli@2.4.1 -> .hosts/v2
 ```
 
 ## 1. Build and unit/contract tests
@@ -28,7 +28,7 @@ bad entries, 401 missing, 401 invalid, HTTP 500, malformed, timeout, and unreach
 
 ```sh
 bun run it:v1          # OpenCode 1.19.3
-bun run it:v2          # OpenCode 2.0.32
+bun run it:v2          # OpenCode 2.4.1
 ```
 
 Each run starts its own mock CLIProxyAPI instances and runs the shared suite in

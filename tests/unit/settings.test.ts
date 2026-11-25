@@ -15,6 +15,8 @@ describe("resolveSettings", () => {
     expect(s.apiKey).toBeUndefined()
     expect(s.timeoutMs).toBe(3000)
     expect(DISCOVERY_TIMEOUT_MS).toBe(3000)
+    expect(s.contextLookup).toBe(true)
+    expect(s.contextURL).toBeUndefined()
   })
 
   test("env wins over options, options win over default", () => {
@@ -65,5 +67,42 @@ describe("resolveSettings", () => {
     const r = resolveSettings({ CLIPROXYAPI_BASE_URL: "nope", CLIPROXYAPI_API_KEY: "k" }, undefined)
     expect(r.ok).toBe(false)
     if (!r.ok) expect(r.apiKey).toBe("k")
+  })
+
+  describe("context lookup settings", () => {
+    test.each([
+      ["0", false],
+      ["false", false],
+      ["no", false],
+      ["off", false],
+      ["FALSE", false],
+      [" 0 ", false],
+    ])("env CLIPROXYAPI_CONTEXT_LOOKUP=%p switches the lookup off", (value, expected) => {
+      expect(ok(resolveSettings({ CLIPROXYAPI_CONTEXT_LOOKUP: value }, undefined)).contextLookup).toBe(expected)
+    })
+
+    test.each(["1", "true", "yes", "on", "anything"])("env CLIPROXYAPI_CONTEXT_LOOKUP=%p keeps it on", (value) => {
+      expect(ok(resolveSettings({ CLIPROXYAPI_CONTEXT_LOOKUP: value }, undefined)).contextLookup).toBe(true)
+    })
+
+    test("a boolean option is taken as-is; env wins over options", () => {
+      expect(ok(resolveSettings({}, { contextLookup: false })).contextLookup).toBe(false)
+      expect(ok(resolveSettings({}, { contextLookup: true })).contextLookup).toBe(true)
+      expect(ok(resolveSettings({ CLIPROXYAPI_CONTEXT_LOOKUP: "0" }, { contextLookup: true })).contextLookup).toBe(false)
+      expect(ok(resolveSettings({ CLIPROXYAPI_CONTEXT_LOOKUP: "1" }, { contextLookup: false })).contextLookup).toBe(true)
+    })
+
+    test("empty strings count as unset, defaulting to on", () => {
+      expect(ok(resolveSettings({ CLIPROXYAPI_CONTEXT_LOOKUP: "" }, { contextLookup: "" as unknown as boolean })).contextLookup).toBe(true)
+    })
+
+    test.each([
+      ["env url", { CLIPROXYAPI_CONTEXT_URL: "http://mirror:1/api.json" }, undefined, "http://mirror:1/api.json"],
+      ["option url", {}, { contextURL: "http://opt:2/catalog.json" }, "http://opt:2/catalog.json"],
+      ["env wins", { CLIPROXYAPI_CONTEXT_URL: "http://env:1" }, { contextURL: "http://opt:2" }, "http://env:1"],
+      ["empty unset", { CLIPROXYAPI_CONTEXT_URL: "" }, { contextURL: "" }, undefined],
+    ])("context URL from %p", (_name, env, opts, expected) => {
+      expect(ok(resolveSettings(env as Record<string, string>, opts as Record<string, unknown>)).contextURL).toBe(expected)
+    })
   })
 })

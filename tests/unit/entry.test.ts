@@ -7,7 +7,7 @@ const savedEnv = { ...process.env }
 afterEach(() => {
   proxy?.stop()
   proxy = undefined
-  for (const k of ["CLIPROXYAPI_BASE_URL", "CLIPROXYAPI_API_KEY"]) {
+  for (const k of ["CLIPROXYAPI_BASE_URL", "CLIPROXYAPI_API_KEY", "CLIPROXYAPI_CONTEXT_LOOKUP", "CLIPROXYAPI_CONTEXT_URL"]) {
     if (savedEnv[k] === undefined) delete process.env[k]
     else process.env[k] = savedEnv[k]
   }
@@ -37,7 +37,7 @@ describe("v1 server entry", () => {
     proxy = startMockProxy({ fixture: "models.json" })
     process.env.CLIPROXYAPI_BASE_URL = proxy.url
     const { client, logs, toasts } = fakeV1Client()
-    const hooks = await plugin.server({ client, serverUrl: new URL("http://localhost:4096") } as any, undefined)
+    const hooks = await plugin.server({ client, serverUrl: new URL("http://localhost:4096") } as any, { contextLookup: false })
     const cfg: any = {}
     await hooks.config!(cfg)
     expect(Object.keys(cfg.provider.cliproxyapi.models)).toHaveLength(5)
@@ -45,10 +45,47 @@ describe("v1 server entry", () => {
     expect(toasts).toEqual([])
   })
 
+  test("enriches limits from a models.dev catalog when the lookup is enabled", async () => {
+    proxy = startMockProxy({ fixture: "models.json", catalogFixture: "modelsdev-catalog.json" })
+    process.env.CLIPROXYAPI_BASE_URL = proxy.url
+    const { client, logs } = fakeV1Client()
+    const hooks = await plugin.server({ client, serverUrl: new URL("http://localhost:4096") } as any, {
+      contextLookup: true,
+      contextURL: `${proxy.url}/modelsdev-catalog.json`,
+    })
+    const cfg: any = {}
+    await hooks.config!(cfg)
+    const models = cfg.provider.cliproxyapi.models
+    // owned_by matches a models.dev provider
+    expect(models["gemini-2.5-pro"].limit).toEqual({ context: 1048576, output: 65536 })
+    expect(models["claude-sonnet-4-6"].limit).toEqual({ context: 200000, output: 64000 })
+    expect(models["gpt-5.5"].limit).toEqual({ context: 1050000, output: 128000 })
+    // owned_by "moonshot" has no provider; the most commonly reported context wins
+    expect(models["kimi-k2.5"].limit).toEqual({ context: 262144, output: 262144 })
+    // absent from the catalog -> documented defaults
+    expect(models["grok-4.7"].limit).toEqual({ context: 200000, output: 32000 })
+    expect(logs).toEqual([])
+  })
+
+  test("a broken catalog URL keeps the defaults and stays silent", async () => {
+    proxy = startMockProxy({ fixture: "models.json" })
+    process.env.CLIPROXYAPI_BASE_URL = proxy.url
+    const { client, logs } = fakeV1Client()
+    const hooks = await plugin.server({ client, serverUrl: new URL("http://localhost:4096") } as any, {
+      contextLookup: true,
+      contextURL: "http://127.0.0.1:1/api.json",
+    })
+    const cfg: any = {}
+    await hooks.config!(cfg)
+    expect(Object.keys(cfg.provider.cliproxyapi.models)).toHaveLength(5)
+    expect(cfg.provider.cliproxyapi.models["gemini-2.5-pro"].limit).toEqual({ context: 200000, output: 32000 })
+    expect(logs).toEqual([])
+  })
+
   test("a host without serverUrl (below 1.19.3) gets one combined message", async () => {
     process.env.CLIPROXYAPI_BASE_URL = "http://127.0.0.1:1"
     const { client, logs } = fakeV1Client()
-    const hooks = await plugin.server({ client } as any, undefined)
+    const hooks = await plugin.server({ client } as any, { contextLookup: false })
     await hooks.config!({} as any)
     expect(logs).toHaveLength(1)
     expect(logs[0].level).toBe("warn")
@@ -60,7 +97,7 @@ describe("v1 server entry", () => {
     proxy = startMockProxy({ fixture: "models.json" })
     process.env.CLIPROXYAPI_BASE_URL = proxy.url
     const { client, logs } = fakeV1Client()
-    const hooks = await plugin.server({ client, serverUrl: new URL("http://x") } as any, undefined)
+    const hooks = await plugin.server({ client, serverUrl: new URL("http://x") } as any, { contextLookup: false })
     const hostile = Object.freeze({ provider: Object.freeze({}) })
     await expect(hooks.config!(hostile as any)).resolves.toBeUndefined()
     expect(logs).toHaveLength(1)
@@ -76,12 +113,42 @@ describe("v2 setup entry", () => {
     const orig = console.error
     console.error = (m: string) => errors.push(m)
     try {
-      await plugin.setup({ options: { baseURL: proxy.url }, provider: { transform: async () => void transforms++ } } as any)
+      await plugin.setup({ options: { baseURL: proxy.url, contextLookup: false }, provider: { transform: async () => void transforms++ } } as any)
     } finally {
       console.error = orig
     }
     expect(transforms).toBe(1)
     expect(errors).toEqual([])
+  })
+
+  test("enriches limits from a models.dev catalog when the lookup is enabled", async () => {
+    proxy = startMockProxy({ fixture: "models.json", catalogFixture: "modelsdev-catalog.json" })
+    let captured: any
+    const errors: string[] = []
+    const orig = console.error
+    console.error = (m: string) => errors.push(m)
+    try {
+      await plugin.setup({
+        options: { baseURL: proxy.url, contextLookup: true, contextURL: `${proxy.url}/modelsdev-catalog.json` },
+        provider: { transform: async (t: any) => void (captured = t) },
+      } as any)
+    } finally {
+      console.error = orig
+    }
+    expect(errors).toEqual([])
+    const added: any[] = []
+    captured({
+      list: () => [],
+      get: () => undefined,
+      add: ({ models }: any) => added.push(...models),
+      update: () => {},
+      remove: () => {},
+      models: { set: () => {}, update: () => {}, remove: () => {} },
+    })
+    const byId = Object.fromEntries(added.map((m) => [m.modelID, m.limit]))
+    expect(byId["gemini-2.5-pro"]).toEqual({ context: 1048576, output: 65536 })
+    expect(byId["gpt-5.5"]).toEqual({ context: 1050000, output: 128000 })
+    expect(byId["grok-4.7"]).toEqual({ context: 200000, output: 32000 })
   })
 
   test("never throws when transform rejects; reports one redacted message", async () => {
@@ -91,7 +158,7 @@ describe("v2 setup entry", () => {
     console.error = (m: string) => errors.push(m)
     try {
       await plugin.setup({
-        options: { baseURL: proxy.url, apiKey: "sk-xyz" },
+        options: { baseURL: proxy.url, apiKey: "sk-xyz", contextLookup: false },
         provider: { transform: async () => { throw new Error("boom sk-xyz") } },
       } as any)
     } finally {

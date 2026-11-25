@@ -3,7 +3,7 @@
  * the `config` hook; OpenCode reads `cfg.provider` after all plugin config hooks have run.
  */
 import type { Config, PluginInput } from "@opencode-ai/plugin"
-import { PROVIDER_ID, PROVIDER_NAME, toModelSpecs } from "../core/mapping.js"
+import { PROVIDER_ID, PROVIDER_NAME, toModelSpecs, type LimitsResolver } from "../core/mapping.js"
 import type { DiscoveryOutcome, MessageLevel } from "../core/outcome.js"
 import type { Settings } from "../core/settings.js"
 
@@ -13,11 +13,11 @@ type ProviderConfig = NonNullable<Config["provider"]>[string]
 type ModelConfig = NonNullable<ProviderConfig["models"]>[string]
 
 /** Register discovered models under `cfg.provider.cliproxyapi`. No-op unless the outcome is success. */
-export function applyV1(cfg: Config, outcome: DiscoveryOutcome, settings: Settings): void {
+export function applyV1(cfg: Config, outcome: DiscoveryOutcome, settings: Settings, resolveLimits?: LimitsResolver): void {
   if (outcome.kind !== "success") return
 
   const discovered: Record<string, ModelConfig> = {}
-  for (const spec of toModelSpecs(outcome.models)) {
+  for (const spec of toModelSpecs(outcome.models, resolveLimits)) {
     discovered[spec.hostKey] = {
       id: spec.apiID,
       name: spec.displayName,

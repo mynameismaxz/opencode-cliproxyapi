@@ -4,7 +4,7 @@
  * Verified host commands (spike, 2026-10-20):
  *   v1 (opencode-ai 1.19.3):  `opencode models`                       -> one "provider/model" per line
  *                             `opencode run -m <provider/model> <msg>` -> one chat turn
- *   v2 (@opencode/cli 2.0.32): same subcommands with `--standalone` (private server; the managed
+ *   v2 (@opencode/cli 2.4.1): same subcommands with `--standalone` (private server; the managed
  *                             background service is shared with the developer's real setup).
  *
  * Loader facts that shape the plugin spec used here:
@@ -137,6 +137,9 @@ export async function withHost<T>(line: Line, opts: HostOptions, fn: (h: HostHan
   for (const [k, v] of Object.entries(dirs)) env[k] = join(root, v)
   env.OPENCODE_DISABLE_MODELS_FETCH = "1"
   env.OPENCODE_DISABLE_AUTOUPDATE = "1"
+  // The context lookup is off by default so the suite never touches the network; tests that need
+  // it override this (and point CLIPROXYAPI_CONTEXT_URL at the mock proxy) via opts.env.
+  env.CLIPROXYAPI_CONTEXT_LOOKUP = "0"
   Object.assign(env, opts.env)
 
   const before = new Map([...snapshot(join(root, "cfg")), ...snapshot(project)])

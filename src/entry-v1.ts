@@ -1,6 +1,7 @@
 /** OpenCode 1.x (1.19.3+) server plugin function. Wired into the default export in ./index. */
 import type { Plugin } from "@opencode-ai/plugin"
 import { discoverModels } from "./core/discovery.js"
+import { contextIndexFor, limitsResolverFrom } from "./core/modelsdev.js"
 import { levelFor, messageFor, UNSUPPORTED_HOST_MESSAGE, type DiscoveryOutcome, type MessageLevel } from "./core/outcome.js"
 import { redact } from "./core/redact.js"
 import { resolveSettings } from "./core/settings.js"
@@ -23,8 +24,10 @@ export const v1Server: Plugin = async (input, options) => {
         } else {
           apiKey = resolved.settings.apiKey
           baseURL = resolved.settings.baseURL
-          outcome = await discoverModels(resolved.settings)
-          applyV1(cfg, outcome, resolved.settings)
+          // Both fetches share the startup bound; the catalog lookup is best-effort.
+          const [discovery, index] = await Promise.all([discoverModels(resolved.settings), contextIndexFor(resolved.settings)])
+          outcome = discovery
+          applyV1(cfg, outcome, resolved.settings, index && limitsResolverFrom(index))
         }
         message = messageFor(outcome, { baseURL, apiKey })
         level = levelFor(outcome)

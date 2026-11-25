@@ -25,7 +25,9 @@ function chatRequests(proxy: MockProxy) {
 }
 
 function userProviderConfig(line: Line, baseURL: string): Record<string, unknown> {
-  const model = { name: "user-model", limit: { context: 8000, output: 1000 } }
+  // Match OpenCode's own defaults. With a smaller window, OpenCode 2.4.x compacts immediately
+  // because its system prompt already exceeds the limit, and the mock reply fails summary checks.
+  const model = { name: "user-model", limit: { context: 200000, output: 32000 } }
   return line === "v1"
     ? { provider: { usermock: { npm: "@ai-sdk/openai-compatible", name: "User Mock", options: { baseURL: `${baseURL}/v1` }, models: { "user-model": model } } } }
     : { providers: { usermock: { package: "@opencode/ai/providers/openai-compatible", name: "User Mock", settings: { baseURL: `${baseURL}/v1` }, models: { "user-model": model } } } }
@@ -278,6 +280,41 @@ export function defineHostSuite(line: Line) {
 
       test("invalid base URL", async () => {
         await scenario({ CLIPROXYAPI_BASE_URL: "notaurl" }, "is not a valid URL: notaurl")
+      })
+    })
+
+    describe("context windows from models.dev", () => {
+      let proxy: MockProxy
+      beforeAll(() => {
+        proxy = startMockProxy({ fixture: "models.json", catalogFixture: "modelsdev-catalog.json" })
+      })
+      afterAll(() => proxy.stop())
+
+      test("enabled lookup keeps every model registered, silent on a served catalog", async () => {
+        await withHost(
+          line,
+          {
+            env: {
+              CLIPROXYAPI_BASE_URL: proxy.url,
+              CLIPROXYAPI_CONTEXT_LOOKUP: "1",
+              CLIPROXYAPI_CONTEXT_URL: `${proxy.url}/modelsdev-catalog.json`,
+            },
+          },
+          async (h) => {
+            const { run, proxied } = await h.listModels({ printLogs: true })
+            expect(run.exitCode).toBe(0)
+            expect([...proxied].sort()).toEqual(FIXTURE_IDS)
+            expect(pluginMessages(run)).toEqual([])
+            expectNoConfigWrites(h)
+          },
+        )
+      })
+
+      test("disabled lookup (the harness default) keeps every model registered", async () => {
+        await withHost(line, { env: { CLIPROXYAPI_BASE_URL: proxy.url } }, async (h) => {
+          const { proxied } = await h.listModels()
+          expect([...proxied].sort()).toEqual(FIXTURE_IDS)
+        })
       })
     })
   })

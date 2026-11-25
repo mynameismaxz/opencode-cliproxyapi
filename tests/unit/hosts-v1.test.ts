@@ -3,7 +3,7 @@ import { applyV1 } from "../../src/hosts/v1"
 import type { DiscoveryOutcome } from "../../src/core/outcome"
 import type { Settings } from "../../src/core/settings"
 
-const settings: Settings = { baseURL: "http://h:8317/v1", modelsURL: "http://h:8317/v1/models", timeoutMs: 5000 }
+const settings: Settings = { baseURL: "http://h:8317/v1", modelsURL: "http://h:8317/v1/models", timeoutMs: 5000, contextLookup: false }
 const withKey: Settings = { ...settings, apiKey: "k" }
 const success: DiscoveryOutcome = { kind: "success", models: [{ id: "gemini-2.5-pro" }, { id: "gpt-5.5" }] }
 

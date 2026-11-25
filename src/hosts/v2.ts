@@ -1,7 +1,7 @@
 /**
  * OpenCode 2.x adapter. Registers models through `ctx.provider.transform(editor => ...)`.
  *
- * Verified against @opencode/plugin@2.0.32 at runtime:
+ * Verified against @opencode/plugin@2.0.32 at runtime (re-checked against the 2.4.1 types):
  *   Provider.Info.empty(id)          -> { id, name: id, activation: "auto", package: "" }
  *   Model.Info.default(provider, id) -> { id, modelID, providerID, name, capabilities: { tools: true,
  *       input: ["text","image"], output: ["text"] }, variants: [], time: { released: 0 }, cost: [],
@@ -10,7 +10,7 @@
  * The objects are built here as plain data so the plugin needs no runtime import of
  * @opencode/plugin (Principle V; avoids host-side module resolution of that package).
  */
-import { PROVIDER_ID, PROVIDER_NAME, toModelSpecs, type ModelSpec } from "../core/mapping.js"
+import { PROVIDER_ID, PROVIDER_NAME, toModelSpecs, type LimitsResolver, type ModelSpec } from "../core/mapping.js"
 import type { DiscoveryOutcome } from "../core/outcome.js"
 import type { Settings } from "../core/settings.js"
 
@@ -72,9 +72,9 @@ function modelInfo(spec: ModelSpec): V2ModelInfo {
  * Build the synchronous, replayable transform callback. Returns undefined when nothing should
  * be registered (empty or failed discovery).
  */
-export function buildV2Transform(outcome: DiscoveryOutcome, settings: Settings): ((editor: V2Editor) => void) | undefined {
+export function buildV2Transform(outcome: DiscoveryOutcome, settings: Settings, resolveLimits?: LimitsResolver): ((editor: V2Editor) => void) | undefined {
   if (outcome.kind !== "success") return undefined
-  const models = toModelSpecs(outcome.models).map(modelInfo)
+  const models = toModelSpecs(outcome.models, resolveLimits).map(modelInfo)
   const providerSettings: Record<string, unknown> = { baseURL: settings.baseURL }
   if (settings.apiKey) providerSettings.apiKey = settings.apiKey
   const info: V2ProviderInfo = {
