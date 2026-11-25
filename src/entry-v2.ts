@@ -1,6 +1,7 @@
 /** OpenCode 2.x setup function. Wired into the default export in ./index. */
 import type { Plugin } from "@opencode/plugin"
 import { discoverModels } from "./core/discovery.js"
+import { contextIndexFor, limitsResolverFrom } from "./core/modelsdev.js"
 import { levelFor, messageFor, type DiscoveryOutcome } from "./core/outcome.js"
 import { redact } from "./core/redact.js"
 import { resolveSettings } from "./core/settings.js"
@@ -21,8 +22,10 @@ export async function v2Setup(ctx: Plugin.Context): Promise<void> {
     } else {
       apiKey = resolved.settings.apiKey
       baseURL = resolved.settings.baseURL
-      outcome = await discoverModels(resolved.settings)
-      const transform = buildV2Transform(outcome, resolved.settings)
+      // Both fetches share the startup bound; the catalog lookup is best-effort.
+      const [discovery, index] = await Promise.all([discoverModels(resolved.settings), contextIndexFor(resolved.settings)])
+      outcome = discovery
+      const transform = buildV2Transform(outcome, resolved.settings, index && limitsResolverFrom(index))
       if (transform) await ctx.provider.transform(transform as unknown as Parameters<typeof ctx.provider.transform>[0])
     }
     const message = messageFor(outcome, { baseURL, apiKey })

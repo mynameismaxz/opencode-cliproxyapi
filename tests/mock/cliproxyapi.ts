@@ -13,6 +13,8 @@ export interface MockProxyOptions {
   fixture?: string
   delayMs?: number
   status?: number
+  /** models.dev-shaped catalog fixture, served at /modelsdev-catalog.json (context lookup tests). */
+  catalogFixture?: string
 }
 
 export interface RecordedRequest {
@@ -90,6 +92,10 @@ export function startMockProxy(opts: MockProxyOptions = {}): MockProxy {
       const headers = headersOf(req)
 
       if (url.pathname === "/healthz") return Response.json({ status: "ok" })
+
+      if (req.method === "GET" && url.pathname === "/modelsdev-catalog.json" && opts.catalogFixture) {
+        return new Response(await readFixture(opts.catalogFixture), { status: 200, headers: { "content-type": "application/json" } })
+      }
 
       if (req.method === "GET" && (url.pathname === "/v1/models" || url.pathname === "/v1/models/")) {
         requests.push({ at: performance.now(), method: req.method, path: url.pathname + url.search, headers })

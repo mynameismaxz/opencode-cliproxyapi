@@ -3,7 +3,7 @@ import { buildV2Transform, type V2Editor } from "../../src/hosts/v2"
 import type { DiscoveryOutcome } from "../../src/core/outcome"
 import type { Settings } from "../../src/core/settings"
 
-const settings: Settings = { baseURL: "http://h:8317/v1", modelsURL: "http://h:8317/v1/models", timeoutMs: 5000 }
+const settings: Settings = { baseURL: "http://h:8317/v1", modelsURL: "http://h:8317/v1/models", timeoutMs: 5000, contextLookup: false }
 const success: DiscoveryOutcome = { kind: "success", models: [{ id: "gemini-2.5-pro" }, { id: "devin/swe-2" }] }
 
 type Rec = { provider: any; models: Map<string, any> }

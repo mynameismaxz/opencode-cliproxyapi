@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+- Model limits now come from [models.dev](https://models.dev): the plugin downloads the public
+  catalog at startup (bounded, best-effort, in parallel with proxy discovery) and registers each
+  discovered model with its published context/output window instead of a fixed 200k/32k default.
+  Matching prefers the `owned_by` upstream, then first-party providers, then the most commonly
+  published window; unknown models keep the 200k/32k defaults.
+- New settings: `contextLookup` / `CLIPROXYAPI_CONTEXT_LOOKUP` (on by default) and `contextURL` /
+  `CLIPROXYAPI_CONTEXT_URL` to disable the lookup or point at a mirror.
+
 ## 0.1.2
 
 - Verified against OpenCode 2.4.1 (models, chat, failure handling, user providers, no config

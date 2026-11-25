@@ -10,7 +10,7 @@
  * The objects are built here as plain data so the plugin needs no runtime import of
  * @opencode/plugin (Principle V; avoids host-side module resolution of that package).
  */
-import { PROVIDER_ID, PROVIDER_NAME, toModelSpecs, type ModelSpec } from "../core/mapping.js"
+import { PROVIDER_ID, PROVIDER_NAME, toModelSpecs, type LimitsResolver, type ModelSpec } from "../core/mapping.js"
 import type { DiscoveryOutcome } from "../core/outcome.js"
 import type { Settings } from "../core/settings.js"
 
@@ -72,9 +72,9 @@ function modelInfo(spec: ModelSpec): V2ModelInfo {
  * Build the synchronous, replayable transform callback. Returns undefined when nothing should
  * be registered (empty or failed discovery).
  */
-export function buildV2Transform(outcome: DiscoveryOutcome, settings: Settings): ((editor: V2Editor) => void) | undefined {
+export function buildV2Transform(outcome: DiscoveryOutcome, settings: Settings, resolveLimits?: LimitsResolver): ((editor: V2Editor) => void) | undefined {
   if (outcome.kind !== "success") return undefined
-  const models = toModelSpecs(outcome.models).map(modelInfo)
+  const models = toModelSpecs(outcome.models, resolveLimits).map(modelInfo)
   const providerSettings: Record<string, unknown> = { baseURL: settings.baseURL }
   if (settings.apiKey) providerSettings.apiKey = settings.apiKey
   const info: V2ProviderInfo = {

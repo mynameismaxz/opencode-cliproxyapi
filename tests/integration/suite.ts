@@ -282,5 +282,40 @@ export function defineHostSuite(line: Line) {
         await scenario({ CLIPROXYAPI_BASE_URL: "notaurl" }, "is not a valid URL: notaurl")
       })
     })
+
+    describe("context windows from models.dev", () => {
+      let proxy: MockProxy
+      beforeAll(() => {
+        proxy = startMockProxy({ fixture: "models.json", catalogFixture: "modelsdev-catalog.json" })
+      })
+      afterAll(() => proxy.stop())
+
+      test("enabled lookup keeps every model registered, silent on a served catalog", async () => {
+        await withHost(
+          line,
+          {
+            env: {
+              CLIPROXYAPI_BASE_URL: proxy.url,
+              CLIPROXYAPI_CONTEXT_LOOKUP: "1",
+              CLIPROXYAPI_CONTEXT_URL: `${proxy.url}/modelsdev-catalog.json`,
+            },
+          },
+          async (h) => {
+            const { run, proxied } = await h.listModels({ printLogs: true })
+            expect(run.exitCode).toBe(0)
+            expect([...proxied].sort()).toEqual(FIXTURE_IDS)
+            expect(pluginMessages(run)).toEqual([])
+            expectNoConfigWrites(h)
+          },
+        )
+      })
+
+      test("disabled lookup (the harness default) keeps every model registered", async () => {
+        await withHost(line, { env: { CLIPROXYAPI_BASE_URL: proxy.url } }, async (h) => {
+          const { proxied } = await h.listModels()
+          expect([...proxied].sort()).toEqual(FIXTURE_IDS)
+        })
+      })
+    })
   })
 }

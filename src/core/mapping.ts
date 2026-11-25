@@ -19,18 +19,38 @@ export interface ModelSpec {
   toolCall: boolean
 }
 
+/** Limits a resolver may know for a model; either field may be missing or invalid. */
+export interface ResolvedLimits {
+  context?: number
+  output?: number
+}
+
+/** Looks up the published limits for one discovered model, or `undefined` when unknown. */
+export type LimitsResolver = (model: DiscoveredModel) => ResolvedLimits | undefined
+
+function safeLimit(value: unknown): number | undefined {
+  return typeof value === "number" && Number.isSafeInteger(value) && value > 0 ? value : undefined
+}
+
 /** Host key for an API id. Identity unless a host is shown to need otherwise (research R8). */
 export function hostKeyFor(apiID: string): string {
   return apiID
 }
 
-export function toModelSpecs(models: DiscoveredModel[]): ModelSpec[] {
-  return models.map((m) => ({
-    apiID: m.id,
-    hostKey: hostKeyFor(m.id),
-    displayName: m.id,
-    contextLimit: DEFAULT_CONTEXT_LIMIT,
-    outputLimit: DEFAULT_OUTPUT_LIMIT,
-    toolCall: true,
-  }))
+/**
+ * Build registration specs. With a `resolveLimits` (the models.dev lookup), known context/output
+ * limits replace the defaults; anything missing or invalid falls back to them.
+ */
+export function toModelSpecs(models: DiscoveredModel[], resolveLimits?: LimitsResolver): ModelSpec[] {
+  return models.map((m) => {
+    const resolved = resolveLimits?.(m)
+    return {
+      apiID: m.id,
+      hostKey: hostKeyFor(m.id),
+      displayName: m.id,
+      contextLimit: safeLimit(resolved?.context) ?? DEFAULT_CONTEXT_LIMIT,
+      outputLimit: safeLimit(resolved?.output) ?? DEFAULT_OUTPUT_LIMIT,
+      toolCall: true,
+    }
+  })
 }
