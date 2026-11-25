@@ -25,7 +25,9 @@ function chatRequests(proxy: MockProxy) {
 }
 
 function userProviderConfig(line: Line, baseURL: string): Record<string, unknown> {
-  const model = { name: "user-model", limit: { context: 8000, output: 1000 } }
+  // Match OpenCode's own defaults. With a smaller window, OpenCode 2.4.x compacts immediately
+  // because its system prompt already exceeds the limit, and the mock reply fails summary checks.
+  const model = { name: "user-model", limit: { context: 200000, output: 32000 } }
   return line === "v1"
     ? { provider: { usermock: { npm: "@ai-sdk/openai-compatible", name: "User Mock", options: { baseURL: `${baseURL}/v1` }, models: { "user-model": model } } } }
     : { providers: { usermock: { package: "@opencode/ai/providers/openai-compatible", name: "User Mock", settings: { baseURL: `${baseURL}/v1` }, models: { "user-model": model } } } }

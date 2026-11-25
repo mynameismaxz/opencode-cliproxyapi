@@ -28,8 +28,12 @@ start; nothing to clone or build.
 **OpenCode 2.x** (`opencode.json`), or run `opencode plugin add @mynameismaxz/opencode-cliproxyapi`:
 
 ```json
-{ "plugins": ["@mynameismaxz/opencode-cliproxyapi"] }
+{ "plugins": ["@mynameismaxz/opencode-cliproxyapi@latest"] }
 ```
+
+OpenCode 2.4.0+ updates plugins that follow a version (`@latest`, a version range, or a Git
+branch) automatically. A bare package name stays pinned, so either keep `@latest`/a range in the
+config or run `opencode plugin update` after a new release.
 
 ### From a local build
 
@@ -64,7 +68,7 @@ Options in OpenCode 1.19.3+:
 Options in OpenCode 2.x:
 
 ```json
-{ "plugins": [{ "package": "@mynameismaxz/opencode-cliproxyapi", "options": { "baseURL": "http://192.168.1.10:8317", "apiKey": "{env:MY_PROXY_KEY}" } }] }
+{ "plugins": [{ "package": "@mynameismaxz/opencode-cliproxyapi@latest", "options": { "baseURL": "http://192.168.1.10:8317", "apiKey": "{env:MY_PROXY_KEY}" } }] }
 ```
 
 Prefer `{env:VAR}` over pasting a key into the config file.
@@ -98,7 +102,7 @@ models you did not list.
 
 ```sh
 bun test                       # unit + contract tests (mock CLIProxyAPI, no network)
-./scripts/install-hosts.sh     # installs OpenCode 1.19.3 and 2.0.32 into .hosts/
+./scripts/install-hosts.sh     # installs OpenCode 1.19.3 and 2.4.1 into .hosts/
 bun run test:integration       # runs both real hosts against the mock proxy
 bun run mock-proxy --fixture models.json --port 8317   # manual testing
 ```

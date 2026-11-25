@@ -1,7 +1,7 @@
 /**
  * OpenCode 2.x adapter. Registers models through `ctx.provider.transform(editor => ...)`.
  *
- * Verified against @opencode/plugin@2.0.32 at runtime:
+ * Verified against @opencode/plugin@2.0.32 at runtime (re-checked against the 2.4.1 types):
  *   Provider.Info.empty(id)          -> { id, name: id, activation: "auto", package: "" }
  *   Model.Info.default(provider, id) -> { id, modelID, providerID, name, capabilities: { tools: true,
  *       input: ["text","image"], output: ["text"] }, variants: [], time: { released: 0 }, cost: [],

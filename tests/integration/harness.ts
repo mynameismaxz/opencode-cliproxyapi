@@ -4,7 +4,7 @@
  * Verified host commands (spike, 2026-10-20):
  *   v1 (opencode-ai 1.19.3):  `opencode models`                       -> one "provider/model" per line
  *                             `opencode run -m <provider/model> <msg>` -> one chat turn
- *   v2 (@opencode/cli 2.0.32): same subcommands with `--standalone` (private server; the managed
+ *   v2 (@opencode/cli 2.4.1): same subcommands with `--standalone` (private server; the managed
  *                             background service is shared with the developer's real setup).
  *
  * Loader facts that shape the plugin spec used here:

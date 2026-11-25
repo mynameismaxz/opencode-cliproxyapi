@@ -38,4 +38,4 @@ install() {
 }
 
 install v1 opencode-ai@1.19.3
-install v2 @opencode/cli@2.0.32
+install v2 @opencode/cli@2.4.1

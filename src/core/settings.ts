@@ -2,8 +2,10 @@
 
 export const DEFAULT_BASE_URL = "http://localhost:8317"
 /**
- * Bounded so startup never stalls. Must stay well under OpenCode 2.x's plugin activation window
- * (5 s for all plugins; exceeding it fails the whole CLI command with HTTP 503).
+ * Bounded so startup never stalls. OpenCode 2.0.32–2.3.x required activation to finish within a
+ * combined 5 s window (past it, every CLI command failed with HTTP 503). OpenCode 2.4.0+ loads
+ * plugins in the background, but a 3 s bound still keeps model registration quick and makes a
+ * slow proxy cheap to abandon.
  */
 export const DISCOVERY_TIMEOUT_MS = 3000
 export const ENV_BASE_URL = "CLIPROXYAPI_BASE_URL"
